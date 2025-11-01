@@ -1,10 +1,11 @@
 """Light-weight Deep-Q-inspired scheduler using linear function approximation."""
 from __future__ import annotations
 
+import math
+import random
 from dataclasses import dataclass
 from typing import Dict, List
 
-import numpy as np
 import pandas as pd
 
 from core.base_optimizer import BaseOptimizer
@@ -13,7 +14,7 @@ from core.problem import ManufacturingProblem
 from core.solution import ScheduleSolution
 
 
-def _extract_features(job_row: Dict[str, object]) -> np.ndarray:
+def _extract_features(job_row: Dict[str, object]) -> List[float]:
     processing = float(job_row.get("Processing_Time", 0.0))
     due_date = job_row.get("Due_Date")
     release = job_row.get("Scheduled_Start") or job_row.get("Release_Date")
@@ -25,21 +26,22 @@ def _extract_features(job_row: Dict[str, object]) -> np.ndarray:
     if release is not None and not pd.isna(release):
         release_minutes = pd.to_datetime(release).value / 60_000_000_000
     slack = due_minutes - release_minutes - processing
-    return np.array([processing, slack, energy, 1.0], dtype=float)
+    return [processing, slack, energy, 1.0]
 
 
 @dataclass
 class LinearQNetwork:
-    weights: np.ndarray
+    weights: List[float]
     learning_rate: float
 
-    def predict(self, features: np.ndarray) -> float:
-        return float(features @ self.weights)
+    def predict(self, features: List[float]) -> float:
+        return float(sum(f * w for f, w in zip(features, self.weights)))
 
-    def update(self, features: np.ndarray, target: float) -> None:
+    def update(self, features: List[float], target: float) -> None:
         prediction = self.predict(features)
         error = target - prediction
-        self.weights += self.learning_rate * error * features
+        for idx, value in enumerate(features):
+            self.weights[idx] += self.learning_rate * error * value
 
 
 class DQNOptimizer(BaseOptimizer):
@@ -61,8 +63,8 @@ class DQNOptimizer(BaseOptimizer):
         self.seed = seed
 
     def _train(self, problem: ManufacturingProblem) -> LinearQNetwork:
-        rng = np.random.default_rng(self.seed)
-        weights = rng.normal(loc=0.0, scale=0.01, size=4)
+        rng = random.Random(self.seed)
+        weights = [rng.gauss(0.0, 0.01) for _ in range(4)]
         network = LinearQNetwork(weights=weights, learning_rate=self.learning_rate)
         job_indices = list(problem.jobs.index)
         if not job_indices:
@@ -74,16 +76,18 @@ class DQNOptimizer(BaseOptimizer):
             current_time = 0.0
             sequence: List[int] = []
             while remaining:
-                state_features = []
+                state_features: List[tuple[int, List[float]]] = []
                 for idx in remaining:
                     features = _extract_features(problem.jobs.loc[idx].to_dict())
-                    features = features / (np.linalg.norm(features) + 1e-9)
+                    norm = math.sqrt(sum(value * value for value in features)) + 1e-9
+                    features = [value / norm for value in features]
                     state_features.append((idx, features))
                 if rng.random() < self.epsilon:
-                    action_idx = rng.choice(len(state_features))
+                    action_idx = rng.randrange(len(state_features))
                 else:
                     q_values = [network.predict(features) for _, features in state_features]
-                    action_idx = int(np.argmin(q_values))
+                    best_value = min(q_values)
+                    action_idx = q_values.index(best_value)
                 job_id, features = state_features[action_idx]
                 sequence.append(job_id)
                 remaining.remove(job_id)
@@ -92,8 +96,12 @@ class DQNOptimizer(BaseOptimizer):
                 reward = -current_time
                 future_estimate = 0.0
                 if remaining:
-                    next_features = [_extract_features(problem.jobs.loc[idx].to_dict()) for idx in remaining]
-                    next_q = [network.predict(feat / (np.linalg.norm(feat) + 1e-9)) for feat in next_features]
+                    next_features = []
+                    for idx in remaining:
+                        feat = _extract_features(problem.jobs.loc[idx].to_dict())
+                        norm = math.sqrt(sum(value * value for value in feat)) + 1e-9
+                        next_features.append([value / norm for value in feat])
+                    next_q = [network.predict(feat) for feat in next_features]
                     future_estimate = min(next_q)
                 target = reward + self.discount * future_estimate
                 network.update(features, target)
@@ -106,10 +114,11 @@ class DQNOptimizer(BaseOptimizer):
         if jobs.empty:
             return ScheduleSolution(schedule=jobs)
 
-        features = []
+        features: List[tuple[int, float]] = []
         for idx, row in jobs.iterrows():
             feat = _extract_features(row.to_dict())
-            norm_feat = feat / (np.linalg.norm(feat) + 1e-9)
+            norm = math.sqrt(sum(value * value for value in feat)) + 1e-9
+            norm_feat = [value / norm for value in feat]
             features.append((idx, network.predict(norm_feat)))
         features.sort(key=lambda item: item[1])
         sequence = [idx for idx, _ in features]

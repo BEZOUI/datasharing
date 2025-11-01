@@ -96,7 +96,10 @@ def _pmx_crossover(parent1: List[int], parent2: List[int], rng: random.Random) -
         mapping = {donor[i]: segment[i] for i in range(cx_point1, cx_point2)}
         for idx in list(range(cx_point1)) + list(range(cx_point2, size)):
             while child[idx] in mapping:
-                child[idx] = mapping[child[idx]]
+                mapped = mapping[child[idx]]
+                if mapped == child[idx]:
+                    break
+                child[idx] = mapped
 
     repair(child1, child1, parent1)
     repair(child2, child2, parent2)

@@ -1,9 +1,9 @@
 """Implementation of classical dispatching rules."""
 from __future__ import annotations
 
+import math
 from typing import Dict, List
 
-import numpy as np
 import pandas as pd
 
 from core.base_optimizer import BaseOptimizer
@@ -116,7 +116,7 @@ class CriticalRatioRule(DispatchingRule):
         start = _fill_reference(_ensure_datetime(jobs, "Scheduled_Start"), due.min())
         processing = _ensure_series(jobs, "Processing_Time")
         time_remaining = (due - start).dt.total_seconds() / 60.0
-        ratio = time_remaining / processing.replace(0, np.nan)
+        ratio = time_remaining / processing.replace(0, math.nan)
         return ratio.fillna(0.0)
 
 
@@ -128,7 +128,7 @@ class WSPTRule(DispatchingRule):
     def _priority(self, jobs: pd.DataFrame) -> pd.Series:
         processing = _ensure_series(jobs, "Processing_Time")
         weights = _ensure_series(jobs, "Priority", default=1.0)
-        return processing / weights.replace(0, np.nan)
+        return processing / weights.replace(0, math.nan)
 
 
 class ATRule(DispatchingRule):
@@ -146,9 +146,13 @@ class ATRule(DispatchingRule):
         release = _fill_reference(_ensure_datetime(jobs, "Scheduled_Start"), due.min())
         avg_proc = processing.mean() if not processing.empty else 1.0
         urgency = (due - release).dt.total_seconds() / 60.0 - processing
-        exponent = -np.maximum(urgency, 0) / (self.k * avg_proc)
-        priority = np.exp(exponent) / processing.replace(0, np.nan)
-        return priority.replace([np.inf, -np.inf], 0.0).fillna(0.0)
+        exponent = urgency.clip(lower=0.0) / (self.k * avg_proc)
+        exponent = exponent.fillna(0.0)
+        priority = exponent.apply(lambda value: math.exp(-value)) / processing.replace(0, math.nan)
+        priority = priority.apply(
+            lambda value: 0.0 if value in (math.inf, -math.inf) or pd.isna(value) else value
+        )
+        return priority
 
 
 class MSERule(DispatchingRule):
@@ -162,7 +166,7 @@ class MSERule(DispatchingRule):
         start = _fill_reference(_ensure_datetime(jobs, "Scheduled_Start"), due.min())
         processing = _ensure_series(jobs, "Processing_Time")
         slack = (due - start).dt.total_seconds() / 60.0 - processing
-        return slack / operations.replace(0, np.nan)
+        return slack / operations.replace(0, math.nan)
 
 
 class SRPTRule(DispatchingRule):
@@ -193,7 +197,8 @@ class CoversionRule(DispatchingRule):
         start = _fill_reference(_ensure_datetime(jobs, "Scheduled_Start"), due.min())
         slack = (due - start).dt.total_seconds() / 60.0 - processing
         avg_proc = processing.mean() if not processing.empty else 1.0
-        return np.exp(-np.maximum(slack, 0) / (self.k * avg_proc))
+        exponent = slack.clip(lower=0.0) / (self.k * avg_proc)
+        return exponent.apply(lambda value: math.exp(-value))
 
 
 DISPATCHING_RULES: Dict[str, type[DispatchingRule]] = {

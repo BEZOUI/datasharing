@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import Dict
 
-import numpy as np
 import pandas as pd
 
 
@@ -30,7 +29,7 @@ def compute_total_completion_time(schedule: pd.DataFrame) -> float:
     start = _ensure_datetime(schedule.get("Release_Date", schedule.get("Scheduled_Start", pd.NaT)))
     start = start.fillna(start.min())
     flow_times = (completion - start).dt.total_seconds() / 60.0
-    return float(np.nansum(flow_times))
+    return float(flow_times.sum())
 
 
 def compute_total_tardiness(schedule: pd.DataFrame) -> float:
@@ -40,7 +39,7 @@ def compute_total_tardiness(schedule: pd.DataFrame) -> float:
     completion = _ensure_datetime(schedule.get("Completion_Time", schedule.get("Scheduled_End", pd.NaT)))
     tardiness = (completion - due).dt.total_seconds() / 60.0
     tardiness = tardiness.clip(lower=0)
-    return float(np.nansum(tardiness))
+    return float(tardiness.sum())
 
 
 def compute_energy(schedule: pd.DataFrame) -> float:

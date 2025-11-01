@@ -74,13 +74,11 @@ class DataPreprocessor:
                 df[column] = pd.to_datetime(df[column])
         if "Due_Date" in df:
             df["Due_Date"] = pd.to_datetime(df["Due_Date"])
-        if "Processing_Time" in df:
-            missing = df["Processing_Time"].isna()
-            if missing.any() and {"Scheduled_Start", "Scheduled_End"}.issubset(df.columns):
-                df.loc[missing, "Processing_Time"] = (
-                    (df.loc[missing, "Scheduled_End"] - df.loc[missing, "Scheduled_Start"]).dt.total_seconds()
-                    / 60.0
-                )
+        if {"Processing_Time", "Scheduled_Start", "Scheduled_End"}.issubset(df.columns):
+            start = pd.to_datetime(df["Scheduled_Start"])
+            end = pd.to_datetime(df["Scheduled_End"])
+            inferred = (end - start).dt.total_seconds() / 60.0
+            df = df.assign(Processing_Time=df["Processing_Time"].fillna(inferred))
         if "Release_Date" not in df and "Scheduled_Start" in df:
             df["Release_Date"] = df["Scheduled_Start"]
         df = df.drop_duplicates()

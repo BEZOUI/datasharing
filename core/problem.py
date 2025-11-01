@@ -4,16 +4,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence
 
-import numpy as np
 import pandas as pd
 
 
 def _ensure_datetime(series: pd.Series) -> pd.Series:
-    """Convert a series to datetime while preserving NaNs."""
+    """Convert a series to datetime while preserving missing entries."""
 
-    if series.empty:
-        return pd.Series(dtype="datetime64[ns]")
-    if np.issubdtype(series.dtype, np.datetime64):
+    if getattr(series, "empty", False):
+        return pd.Series([], dtype="datetime64[ns]")
+    if getattr(series, "dtype", None) == "datetime64[ns]":
         return series
     return pd.to_datetime(series, errors="coerce")
 

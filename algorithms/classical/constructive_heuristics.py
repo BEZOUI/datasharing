@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from typing import List
 
-import numpy as np
-
 from core.base_optimizer import BaseOptimizer
 from core.metrics import evaluate_schedule
 from core.problem import ManufacturingProblem
@@ -57,14 +55,23 @@ class PalmerHeuristic(BaseOptimizer):
             raise ValueError("Processing_Time column is required for Palmer heuristic")
 
         machines = jobs.get("Machine_ID")
-        if machines is not None:
-            machine_dummies = np.vstack([machines == m for m in sorted(machines.unique())]).astype(float)
-            slope_index = machine_dummies.T @ np.linspace(-1, 1, machine_dummies.shape[0])
-            slope_index = slope_index.flatten()
+        slope_index: List[float]
+        if machines is not None and not machines.empty:
+            unique_machines = sorted(machines.unique())
+            if len(unique_machines) == 1:
+                weight_map = {unique_machines[0]: 0.0}
+            else:
+                step = 2.0 / (len(unique_machines) - 1)
+                weight_map = {machine: -1.0 + idx * step for idx, machine in enumerate(unique_machines)}
+            slope_index = [weight_map.get(machines.iloc[i], 0.0) for i in range(len(machines))]
         else:
-            slope_index = np.linspace(-1, 1, len(jobs))
+            if len(jobs) <= 1:
+                slope_index = [0.0 for _ in range(len(jobs))]
+            else:
+                step = 2.0 / (len(jobs) - 1)
+                slope_index = [-1.0 + i * step for i in range(len(jobs))]
 
-        priority = slope_index * processing.to_numpy()
+        priority = [slope_index[i] * processing.iloc[i] for i in range(len(processing))]
         ordered = jobs.assign(_priority=priority).sort_values("_priority", ascending=True)
         schedule = problem.build_schedule(ordered.index)
         return ScheduleSolution(schedule=schedule)

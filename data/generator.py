@@ -4,7 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Iterable, List, Sequence
-import numpy as np
+
+import random
+
 import pandas as pd
 
 
@@ -22,15 +24,19 @@ class SyntheticDataGenerator:
     """Generate synthetic manufacturing datasets."""
 
     def generate(self, scenario: SyntheticScenario) -> pd.DataFrame:
-        rng = np.random.default_rng()
+        rng = random.Random()
         timestamps = [
             scenario.start_date + i * scenario.time_between_jobs for i in range(scenario.num_jobs)
         ]
-        machines = rng.choice(scenario.machines, size=scenario.num_jobs)
-        processing_time = rng.integers(10, 240, size=scenario.num_jobs)
-        energy = rng.normal(15, 5, size=scenario.num_jobs).clip(min=1)
-        due_dates = [ts + timedelta(minutes=int(pt * rng.uniform(1.2, 1.8))) for ts, pt in zip(timestamps, processing_time)]
-        priorities = rng.uniform(1.0, 3.0, size=scenario.num_jobs)
+        machine_choices = list(scenario.machines)
+        machines = [rng.choice(machine_choices) for _ in range(scenario.num_jobs)]
+        processing_time = [rng.randrange(10, 240) for _ in range(scenario.num_jobs)]
+        energy = [max(1.0, rng.gauss(15, 5)) for _ in range(scenario.num_jobs)]
+        due_dates = [
+            ts + timedelta(minutes=int(pt * rng.uniform(1.2, 1.8)))
+            for ts, pt in zip(timestamps, processing_time)
+        ]
+        priorities = [rng.uniform(1.0, 3.0) for _ in range(scenario.num_jobs)]
         data = pd.DataFrame(
             {
                 "Job_ID": [f"JOB_{i:05d}" for i in range(scenario.num_jobs)],
