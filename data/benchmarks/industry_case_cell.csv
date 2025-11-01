@@ -1,0 +1,10 @@
+Job_ID,Machine_ID,Cell,Processing_Time,Energy_Consumption,Due_Date,Process_Type,Additive_Layer_Time,Transfer_Time
+C1,Mill_A,North,52,9.4,2024-01-06T09:00:00,subtractive,0.0,0.0
+C1,Printer_1,North,38,11.2,2024-01-06T09:00:00,additive,45.0,0.0
+C1,Grinder_A,North,27,8.6,2024-01-06T09:00:00,subtractive,0.0,0.0
+C2,Mill_B,South,49,9.1,2024-01-07T15:00:00,subtractive,0.0,18.0
+C2,Printer_2,South,36,10.8,2024-01-07T15:00:00,additive,42.0,18.0
+C2,Grinder_B,South,29,8.8,2024-01-07T15:00:00,subtractive,0.0,18.0
+C3,Mill_A,North,51,9.3,2024-01-08T11:00:00,subtractive,0.0,0.0
+C3,Printer_1,North,37,11.0,2024-01-08T11:00:00,additive,44.0,0.0
+C3,Polisher_A,North,26,8.2,2024-01-08T11:00:00,subtractive,0.0,0.0
