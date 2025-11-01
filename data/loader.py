@@ -82,5 +82,8 @@ class DataPreprocessor:
         if "Release_Date" not in df and "Scheduled_Start" in df:
             df["Release_Date"] = df["Scheduled_Start"]
         df = df.drop_duplicates()
-        df = df.fillna(method="ffill").fillna(method="bfill")
+        if hasattr(df, "ffill") and hasattr(df, "bfill"):
+            df = df.ffill().bfill()
+        else:
+            df = df.fillna(method="ffill").fillna(method="bfill")
         return df
