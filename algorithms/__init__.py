@@ -1,0 +1,54 @@
+"""Algorithm registry and utility helpers."""
+from __future__ import annotations
+
+from typing import Callable, Dict
+
+from algorithms.classical.dispatching_rules import DISPATCHING_RULES, DispatchingRule
+from algorithms.classical.constructive_heuristics import NEHHeuristic, PalmerHeuristic
+from algorithms.classical.exact_methods import BranchAndBound
+from algorithms.deep_rl.dqn import DQNOptimizer
+from algorithms.hybrid.adaptive_hybrid import AdaptiveHybridOptimizer
+from algorithms.metaheuristics.simulated_annealing import SimulatedAnnealing
+from algorithms.multi_objective.nsga2 import NSGAII
+from core.base_optimizer import BaseOptimizer
+
+
+def get_algorithm(name: str, **kwargs) -> BaseOptimizer:
+    """Instantiate an algorithm by name.
+
+    Dispatching rules can be referenced directly by their identifier
+    (e.g. ``"spt"``).  Other algorithms expose canonical names matching the
+    research roadmap (``"simulated_annealing"``, ``"nsga2"``, ``"dqn"``,
+    ``"adaptive_hybrid"``).
+    """
+
+    name = name.lower()
+    if name in DISPATCHING_RULES:
+        return DISPATCHING_RULES[name](**kwargs)
+
+    registry: Dict[str, Callable[..., BaseOptimizer]] = {
+        "neh": NEHHeuristic,
+        "palmer": PalmerHeuristic,
+        "branch_and_bound": BranchAndBound,
+        "simulated_annealing": SimulatedAnnealing,
+        "nsga2": NSGAII,
+        "dqn": DQNOptimizer,
+        "adaptive_hybrid": AdaptiveHybridOptimizer,
+    }
+    if name not in registry:
+        raise KeyError(f"Unknown algorithm '{name}'")
+    return registry[name](**kwargs)
+
+
+__all__ = [
+    "get_algorithm",
+    "DISPATCHING_RULES",
+    "DispatchingRule",
+    "NEHHeuristic",
+    "PalmerHeuristic",
+    "BranchAndBound",
+    "SimulatedAnnealing",
+    "NSGAII",
+    "DQNOptimizer",
+    "AdaptiveHybridOptimizer",
+]
