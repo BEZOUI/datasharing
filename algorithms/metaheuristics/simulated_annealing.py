@@ -3,22 +3,13 @@ from __future__ import annotations
 
 import math
 import random
-from typing import Dict, List, Sequence
+from typing import Dict, List
 
+from algorithms.metaheuristics.utils import merge_objective_weights, random_sequence, sequence_objective
 from core.base_optimizer import BaseOptimizer
 from core.metrics import evaluate_schedule
 from core.problem import ManufacturingProblem
 from core.solution import ScheduleSolution
-
-
-def _sequence_objective(problem: ManufacturingProblem, sequence: Sequence[int], weights: dict[str, float]) -> tuple[float, dict[str, float]]:
-    schedule = problem.build_schedule(sequence)
-    metrics = evaluate_schedule(schedule)
-    objective = 0.0
-    for key, weight in weights.items():
-        if key in metrics:
-            objective += weight * metrics[key]
-    return objective, metrics
 
 
 class SimulatedAnnealing(BaseOptimizer):
@@ -46,7 +37,7 @@ class SimulatedAnnealing(BaseOptimizer):
         self.steps_per_temperature = steps_per_temperature
         self.max_iterations = max_iterations
         self.seed = seed
-        self.objective_weights = objective_weights or {"makespan": 1.0, "energy": 0.01}
+        self.objective_weights = merge_objective_weights(objective_weights)
 
     def _neighbour(self, sequence: List[int], rng: random.Random) -> List[int]:
         if len(sequence) < 2:
@@ -62,9 +53,8 @@ class SimulatedAnnealing(BaseOptimizer):
             return ScheduleSolution(schedule=problem.jobs)
 
         rng = random.Random(self.seed)
-        current_sequence = jobs.copy()
-        rng.shuffle(current_sequence)
-        current_value, current_metrics = _sequence_objective(problem, current_sequence, self.objective_weights)
+        current_sequence = random_sequence(problem, rng)
+        current_value, current_metrics = sequence_objective(problem, current_sequence, self.objective_weights)
         best_sequence = current_sequence
         best_value = current_value
         best_metrics = current_metrics
@@ -75,7 +65,7 @@ class SimulatedAnnealing(BaseOptimizer):
         while temperature > 1e-3 and iteration < self.max_iterations:
             for _ in range(self.steps_per_temperature):
                 candidate_sequence = self._neighbour(current_sequence, rng)
-                candidate_value, candidate_metrics = _sequence_objective(
+                candidate_value, candidate_metrics = sequence_objective(
                     problem, candidate_sequence, self.objective_weights
                 )
 

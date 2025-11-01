@@ -26,6 +26,7 @@ __all__ = [
     "isna",
     "notna",
     "to_datetime",
+    "date_range",
     "to_numeric",
     "to_timedelta",
     "concat",
@@ -99,6 +100,22 @@ class Timestamp(datetime):
         epoch = datetime(1970, 1, 1, tzinfo=self.tzinfo)
         delta = self - epoch
         return int(delta.total_seconds() * 1_000_000_000)
+
+    def normalize(self) -> "Timestamp":
+        """Return the timestamp floored to midnight of the same day."""
+
+        return Timestamp(
+            datetime(
+                self.year,
+                self.month,
+                self.day,
+                0,
+                0,
+                0,
+                0,
+                tzinfo=self.tzinfo,
+            )
+        )
 
 
 class Index:
@@ -711,6 +728,25 @@ def to_datetime(data: Any, errors: str = "raise") -> Series | Timestamp:
         converted = [convert(value) for value in data]
         return Series(converted, index=list(range(len(converted))), dtype="datetime64[ns]")
     return convert(data)
+
+
+def date_range(start: Any, periods: int, freq: str = "D") -> Series:
+    """Generate a minimal fixed-frequency datetime range."""
+
+    if periods < 0:
+        raise ValueError("periods must be non-negative")
+    start_ts = to_datetime(start)
+    freq = freq.upper()
+    if freq == "H":
+        delta = timedelta(hours=1)
+    elif freq in {"D", "1D"}:
+        delta = timedelta(days=1)
+    elif freq in {"T", "MIN"}:
+        delta = timedelta(minutes=1)
+    else:
+        raise ValueError(f"Unsupported frequency '{freq}' in date_range")
+    values = [start_ts + i * delta for i in range(periods)]
+    return Series(values)
 
 
 def to_numeric(data: Series, errors: str = "raise") -> Series:
